@@ -1,0 +1,397 @@
+---
+title: 'Introduction to R: Part I'
+author: "Jason Bennett"
+date: "5/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Welcome to R!
+
+As you can see above, using a single "#" will create a heading for you in your R Markdown file. If I want subheadings, just add additional pound signs.
+
+# Echo!
+## Echo!
+### Echo!
+#### Echo!
+
+After creating headings, you can type anything you like as normal. Just like there is a special way to create headings, there are also special ways to include underlines, bolded segments, and italics. These and other options can be found on this handy R cheatsheet:
+
+https://rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf
+
+After you "Knit" your R markdown file, you will create an html file that will display your nicely formatted report!
+
+
+
+
+
+
+
+## Working with Data
+
+Most of the work you do in R will probably involve using "packages", or programs that have already been written and developed by others. These packages can be installed using the command:
+
+install.packages(name of package)
+
+This will search CRAN for the package with the name you supplied, and if it can find the package, will download it for you! To load the package, use:
+
+library(name of package)
+
+Here is a helpful link with additional information on both installing packages and listing some important packages you may want to check out:
+
+https://support.rstudio.com/hc/en-us/articles/201057987-Quick-list-of-useful-R-packages
+
+Now that we know a bit more about packages, how to work with and load them, and how to display them in a nice Markdown html... let's make something worth displaying :)
+
+
+
+
+
+
+
+
+# Unique Syntax Example
+
+I want to declare some variables, and initialize a value. Easy!
+
+```{r}
+x = 5
+x
+```
+
+Awesome! But wait... what are all these arrows? (QUICK TIP: Press the 'Option' + '-' keys to make the arrow!)
+
+```{r}
+y <- 5
+y
+```
+
+Backwards arrows?
+
+```{r}
+# PLEASE DON'T DO THIS!
+5 -> z
+z
+```
+
+Are these all the same?
+
+```{r}
+print(x == y & x == z & y == z)
+print(class(x))
+print(class(y))
+print(class(z))
+```
+
+They are!
+
+... so then which do I use?
+
+Totally up to you, just be consistent!
+
+Personally, I set constants with "=" and my vectors/matrices with "<-", but it doesn't matter.
+
+
+
+
+
+
+
+# R is Overly Helpful
+
+R can be incredibly helpful, but sometimes it can be too helpful!
+
+Let's say we have some vector:
+
+```{r}
+a <- c(1,2,3)
+a
+```
+
+And we want to multiply that vector with a second vector, but we've accidentally included the values twice:
+
+```{r}
+b <- c(3,2,1,3,2,1)
+b
+```
+
+This shouldn't work, right?
+
+```{r}
+c <- a * b
+c
+```
+
+Probably not what we wanted!
+
+Even worse, what if the two aren't even multiples of eachother?
+
+```{r}
+d <- c(4,3,2,1)
+e <- a * d
+```
+
+At least it caught this one, right?
+
+```{r}
+e
+```
+
+Woops! That could be bad...
+
+
+
+
+
+
+
+
+# 1-Base Indexing
+
+...but R uses 1-based indexing. For anyone new to programming, I'm sure you think I'm being melodramatic, but this is probably one of the most head-scratching aspects of R.
+
+```{r}
+n <- c("First", "Second", "Third")
+print(n[0])
+```
+
+That's not what we wanted!
+
+```{r}
+n[1]
+```
+
+
+I suppose this is a good reason to always name your columns in R! Generally, indexing directly in R isn't the best way to access data (due to things like the 'apply' family of functions that are beyond the scope of this presentation). Instead, access data fields by using their named columns or rows is both more accurate and more readable.
+
+
+
+
+
+
+
+
+# R Basics
+
+Let's create an R vector!
+
+```{r}
+vec <- c("red", 5, FALSE)
+class(vec)
+```
+
+So R vectors can only be one "type". In this case, all the elements were coerced into characters.
+
+How do I make mixed type structures in R?
+
+Dataframes! (Same idea as Python pandas dataframes)
+
+```{r}
+# Create three distinct vectors with data
+charVec <- c("Fox Mulder", "Dana Scully", "Mr. X")
+numVec <- c(34, 30, 53)
+boolVec <- c(TRUE, FALSE, TRUE)
+
+# Combine them for ease of use
+df <- data.frame(charVec,numVec,boolVec, stringsAsFactors = FALSE)
+
+# Set useful column names
+names(df) <- c("Name", "Age", "BelievesInAliens")
+```
+
+So... who "Wants to Believe"?
+
+```{r}
+df[df$BelievesInAliens==TRUE,] # & df$Age>50,]
+```
+
+
+
+
+
+
+
+
+# R Data Analysis 101
+
+There are multiple sample datasets available to you when you download R. A list of all of the available datasets can be found by using:
+
+library(help = "datasets")
+
+For our workshop, we'll work with a small csv of sample data that I generated. This should be small enough that we can look into what is going on in fine detail, but still communicates the same practices you would use on the larger sample datasets you can find above.
+
+First step: import the data!
+
+```{r}
+RNA_seq <- read.csv(file = "RNA_seq_counts.csv",
+                    row.names = 1,
+                    stringsAsFactors = FALSE)
+RNA_seq
+```
+
+Now we want to extract the gene lengths from the table so that we only have our counts remaining.
+
+```{r}
+# Copy lengths and make sure to label them with the appropriate gene names
+lengths_in_kb <- RNA_seq$Lengths_kb
+names(lengths_in_kb) <- rownames(RNA_seq)
+
+# Subset our table to select only the counts
+RNA_seq_counts <- RNA_seq[,2:6]
+```
+
+Now what we have is our RNA-seq count table and the lengths, which will allow us to start working with the data!
+
+## Normalizing our Data
+
+Our reads are currently just raw counts, so the first thing we need to do is normalize our data.
+
+One of the most common normalization techniques for RNA-seq data is TPM normalization, so we'll do that now.
+
+I'll create a simple TPM calculation function that we can use on our data:
+
+```{r}
+# Convert my data in raw reads to TPM normalized data: x = the data, y = the gene lengths in kilobases
+get_TPM_reads <- function(x, y) {
+  # Find the Reads Per Kilobase: divide the genes (in rows) by the gene lengths
+  RPK <- sweep(x, 1, y, "/")
+  # Sum all RPK per sample and divide by 1,000,000 to get the scaling factor
+  scale_factor <- colSums(RPK) / 1000000
+  # Divide RPK values by the scaling factor for each sample
+  TPM <- sweep(RPK, 2, scale_factor, "/")
+  return(TPM)
+}
+data <- get_TPM_reads(RNA_seq_counts, lengths_in_kb)
+```
+
+Is this right? We can quickly check, as each column should add up to the same value, which is what allows us to make comparisons between samples after normalization!
+
+You could manually inspect each column sum, which would be tedious, or...
+
+```{r}
+table(colSums(data))
+```
+
+This will give you a table counting all unique values. In our case, we had 5 samples, and we see all 5 have a column sum of 1 million. Great!
+
+## Analyze the Data
+
+We're ready to do some basic analysis of the data.
+
+Maybe we want to know how similar our samples/replicates are to eachother?
+
+Sounds like a dendrogram would help us out here.
+
+```{r}
+RNA_dist <- dist(t(data), method = "euclidean")
+plot(hclust(RNA_dist, method = "single"))
+```
+
+Just for fun, let's look at what the dendrogram would have looked like without normalizing!
+
+```{r}
+test_dist <- dist(t(RNA_seq_counts), method = "euclidean")
+plot(hclust(test_dist, method = "single"))
+```
+
+If we cut the tree where 2 and 5 converge (at about height = 4), we would end up with 3 clusters instead of 2!
+
+We can see with from the previous tree built using the normalized data, Donor4 was grouped with Donor1 and Donor2 resulting in 2 clusters.
+
+In this case, this is good, because those 3 donors have something in common.
+
+The hint is in the final gene name in the table! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Extra Practice with Sample Datasets
+
+One of the most commonly used practice datasets is called the Iris dataset containing basic measurements of different Iris flower species. We can use this to gain a bit of experience working with R!
+
+```{r}
+library(datasets)
+View(iris)
+class(iris)
+```
+
+We can see the different measurements as well as the species these measurements were collected from.
+
+Which species were collected?
+
+```{r}
+unique(iris$Species)
+```
+
+So what if I only want to look at the measurements from the "setosa" species?
+
+```{r}
+setosa <- iris[iris$Species=="setosa",]
+head(setosa)
+```
+
+Now let's see if we can look at the distribution of petal lengths across the Setosa species.
+
+```{r}
+hist(setosa$Petal.Length)
+```
+
+Is there a difference in the distribution of petal lengths between species?
+
+Let's find out!
+
+```{r}
+versicolor <- iris[iris$Species=="versicolor",]
+head(versicolor)
+```
+
+```{r}
+hist(versicolor$Petal.Length)
+```
+
+Looks like the Versicolor species has much longer petals!
+
+We can see from the graphs, but maybe we want to get an exact mean for petal length for both species:
+
+```{r}
+print(mean(setosa$Petal.Length))
+print(mean(versicolor$Petal.Length))
+```
+
+Finally, what if we want to visualize the difference between the petal lengths of all three species?
+
+```{r}
+colors <- c("Red", "Yellow", "Blue")
+
+boxplot(Petal.Length~Species,
+        data = iris,
+        col = colors,
+        main="Petal Length by Species",
+        xlab="Species",
+        ylab="Petal Length (inches)")
+```
+
+Looks like there is a significant difference between the petal lengths across some species!
+
+
